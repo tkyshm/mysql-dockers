@@ -1,0 +1,87 @@
+#!/bin/bash
+work_dir=$(readlink -f $(dirname $0))
+mode=$1
+cmd=$2
+user=${3:-root}
+
+master_port=13306
+slave1_port=13316
+
+alter() {
+    local host=$1
+    local sql=$2
+
+    if [[ -f $sql ]] ; then
+        echo "Could not find alter sql file. ($sql)"
+        exit 1
+    fi
+
+    case $host in
+        master)
+            mysql -u $user -h 127.0.0.1 -P $master_port < $sql
+            ;;
+        slave1)
+            mysql -u $user -h 127.0.0.1 -P $slave1_port < $sql
+            ;;
+        *)
+            echo "unknown host: $host."
+            exit 1;
+    esac
+}
+
+case $mode in
+    master)
+        if [[ $cmd = "" ]] ; then
+            echo "[info] you didn't give sql. so login mysql shell($mode)"
+            mysql -u $user -h 127.0.0.1 -P $master_port
+        else
+            mysql -u $user -h 127.0.0.1 -P $master_port -e "$cmd"
+        fi
+        ;;
+    slave1)
+        if [[ $cmd = "" ]] ; then
+            echo "[info] you didn't give sql. so login mysql shell($mode)"
+            mysql -u $user -h 127.0.0.1 -P $slave1_port
+        else
+            mysql -u $user -h 127.0.0.1 -P $slave1_port -e "$cmd"
+        fi
+        ;;
+    start)
+        cd $work_dir
+        mkdir -p sqls
+
+        echo "docker run mysql-master"
+        ./master/start-master.sh
+
+        echo "docker run mysql-slave1"
+        ./slave1/start-slave1.sh
+
+        echo "initdb"
+        for sql in `find sqls ! -path ./sqls`
+        do
+            echo -n "which database exec $sql (please input databasename)? > "
+            read dbname
+            for port in $master_port $slave1_port
+            do
+                mysql -u root -h 127.0.0.1 -P $port -e "create database $dbname"
+                mysql -u root -h 127.0.0.1 -P $port $dbname < ../sqls/create.sql
+            done
+        done
+
+        echo "finished"
+        ;;
+    stop)
+        echo "docker rm mysql-master"
+        docker rm -f mysql-master
+        echo "docker rm mysql-slave1"
+        docker rm -f mysql-slave1
+        ;;
+    alter)
+        echo "start alter"
+        alter $2 $3
+        ;;
+    *)
+        echo "you should specify first argument that is mode such as a 'master' or 'slave1'."
+        exit 1
+        ;;
+esac
