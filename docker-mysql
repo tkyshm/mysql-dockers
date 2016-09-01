@@ -1,11 +1,29 @@
 #!/bin/bash
 work_dir=$(readlink -f $(dirname $0))
 mode=$1
-cmd=$2
-user=${3:-root}
+user=${MYSQL_LOGIN_USERNAME:-root}
 
 master_port=13306
 slave1_port=13316
+
+usage() {
+    cat <<__USAGE__
+ docker-mysql <sub-command>
+ 
+ sub-command:
+   master:
+     connect to master mysql server
+   slave1:
+     connect to slave1 mysql server
+   start:
+     start all mysql server
+   stop:
+     stop all mysql server
+   alter:
+     alter <hostname> <sql file>
+
+__USAGE__
+}
 
 alter() {
     local host=$1
@@ -31,20 +49,10 @@ alter() {
 
 case $mode in
     master)
-        if [[ $cmd = "" ]] ; then
-            echo "[info] you didn't give sql. so login mysql shell($mode)"
-            mysql -u $user -h 127.0.0.1 -P $master_port
-        else
-            mysql -u $user -h 127.0.0.1 -P $master_port -e "$cmd"
-        fi
+        mysql -u $user -h 127.0.0.1 -P $master_port
         ;;
     slave1)
-        if [[ $cmd = "" ]] ; then
-            echo "[info] you didn't give sql. so login mysql shell($mode)"
-            mysql -u $user -h 127.0.0.1 -P $slave1_port
-        else
-            mysql -u $user -h 127.0.0.1 -P $slave1_port -e "$cmd"
-        fi
+        mysql -u $user -h 127.0.0.1 -P $slave1_port
         ;;
     start)
         cd $work_dir
