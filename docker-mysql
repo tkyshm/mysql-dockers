@@ -57,15 +57,12 @@ case $mode in
         ./slave1/start-slave1.sh
 
         echo "initdb"
-        for sql in `find sqls ! -path ./sqls`
+        for sql in `find sqls ! -path sqls`
         do
             echo -n "which database exec $sql (please input databasename)? > "
             read dbname
-            for port in $master_port $slave1_port
-            do
-                mysql -u root -h 127.0.0.1 -P $port -e "create database $dbname"
-                mysql -u root -h 127.0.0.1 -P $port $dbname < ../sqls/create.sql
-            done
+            mysql -u root -h 127.0.0.1 -P $master_port -e "create database $dbname"
+            mysql -u root -h 127.0.0.1 -P $master_port $dbname < $sql
         done
 
         echo "finished"
